@@ -1,168 +1,194 @@
 require("dotenv").config();
 const TelegramBot = require("node-telegram-bot-api");
 
-const token = process.env.TELEGRAM_BOT_TOKEN || "YOUR_TELEGRAM_BOT_TOKEN";
+const token = "8597902704:AAESMCYUvwa6WvatlcmeJFTsUupMVuGEHM0";
 
 const bot = new TelegramBot(token, {
   polling: {
     interval: 300,
     autoStart: true,
-    params: {
-      timeout: 10,
-    },
+    params: { timeout: 10 },
   },
 });
 
-const commands = [
-  { command: "start", description: "စတင်" },
-  {
-    command: "status",
-    description: "သင့် Private Outline Key အခြေအနေစစ်ဆေးရန်",
-  },
-  { command: "prices", description: "စျေးနှုန်းများကြည့်ရန်" },
-];
+// -------- USER STATE TO TRACK KEY INPUT --------
+const userState = {}; // waiting_for_key
 
-bot.setMyCommands(commands).catch(console.error);
+// Helper to get username
+function getUserName(user) {
+  return (
+    user.username ||
+    `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
+    "Unknown User"
+  );
+}
 
-// Get User Name
-const getUserName = (from) => {
-  if (!from) return "အသုံးပြုသူ";
-  const firstName = from.first_name || "";
-  const lastName = from.last_name || "";
-  // const username = from.username ? `@${from.username}` : "";
-  return `${firstName} ${lastName}`.trim() || "အသုံးပြုသူ";
-};
+// Main menu message
+function getWelcomeMessage(user) {
+  const userName = getUserName(user);
 
-//main choose buttons
-const showMainMenu = (chatId, userName = "") => {
-  return bot
-    .sendMessage(chatId, `Hello ${userName} ဘာကူညီပေးရမလဲ?`, {
+  return {
+    text:
+      `👋 *${userName}* မင်္ဂလာပါ!\n\n` +
+      `*Pixel VPN Service* မှကြိုဆိုပါတယ်။\n\n` +
+      `အောက်က Menu မှရွေးချယ်ပါ👇\n\n` +
+      `အကူအညီလိုပါက - [@AungPaingSoeDev](https://t.me/AungPaingSoeDev)`,
+    options: {
       parse_mode: "Markdown",
+      disable_web_page_preview: true,
       reply_markup: {
         inline_keyboard: [
           [
             {
-              text: "ဝယ်ယူထားတဲ့ Private Key အခြေအနေကိုစစ်ရန် နိုပ်ပါ",
-              callback_data: "status",
+              text: "💰 Premium Key စျေးနှုန်းများ",
+              callback_data: "show_prices",
             },
           ],
-          [
-            {
-              text: "Private Key စျေးနှုန်းများကြည့်ရန် နိုပ်ပါ",
-              callback_data: "prices",
-            },
-          ],
-          [{ text: "Private Key ဝယ်ယူရန် နိုပ်ပါ", callback_data: "buy" }],
+          [{ text: "📊 Key ရဲ့ GB ပမာဏစစ်ရန်", callback_data: "key_status" }],
+          [{ text: "🎁 Promotion များ", callback_data: "promotion" }],
         ],
       },
-    })
-    .catch(console.error);
-};
+    },
+  };
+}
 
-//start
+// Handle /start
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
-  console.log(`New user started: ${getUserName(msg.from)} (${chatId})`);
 
-  const welcomeMessage =
-    `👋 *Pixel Hub Bot မှကြိုဆိုပါတယ်!*\n\n` +
-    `အောက်ပါခလုတ်များကို နှိပ်၍ စတင်နိုင်ပါသည်။`;
-
-  bot
-    .sendMessage(chatId, welcomeMessage, { parse_mode: "Markdown" })
-    .then(() => showMainMenu(chatId, getUserName(msg.from)))
-    .catch(console.error);
+  const { text, options } = getWelcomeMessage(msg.from);
+  bot.sendMessage(chatId, text, options).catch(console.error);
 });
 
+// ------------- CALLBACK HANDLER -------------
 bot.on("callback_query", async (callbackQuery) => {
-  const message = callbackQuery.message;
-  const chatId = message.chat.id;
+  const chatId = callbackQuery.message.chat.id;
+  const messageId = callbackQuery.message.message_id;
   const data = callbackQuery.data;
 
   try {
-    await bot.answerCallbackQuery(callbackQuery.id);
+    // --------- PRICE LIST ----------
+    if (data === "show_prices") {
+      const priceMsg =
+        `*Premium Key Prices*\n\n` +
+        `- 50GB (30 Days) — 3,000 MMK\n` +
+        `- 100GB (30 Days) — 5,000 MMK\n` +
+        `- 200GB (30 Days) — 7,000 MMK\n\n` +
+        `📍 Region: 🇸🇬 Singapore\n\n` +
+        `ဝယ်ယူရန် — @AungPaingSoeDev`;
 
-    switch (data) {
-      case "status":
-        await bot.sendMessage(
-          chatId,
-          `🔍 *${getUserName(callbackQuery.from)} ၏ Private Key အခြေအနေ*\n\n` +
-            `🟢 *အခြေအနေ*: အသုံးပြုနိုင်ပါသည်\n` +
-            `📊 *သုံးစွဲပြီး*: 45.2GB / 100GB\n` +
-            `📅 *သက်တမ်းကုန်ဆုံးမည့်ရက်*: ၁၅ ဒီဇင်ဘာ ၂၀၂၅\n\n` +
-            `🔑 *Key ID*: OUT-${Math.random()
-              .toString(36)
-              .substr(2, 8)
-              .toUpperCase()}`,
-          { parse_mode: "Markdown" }
-        );
-        break;
-
-      case "prices":
-        await bot.sendMessage(
-          chatId,
-          `*Private Key စျေးနှုန်းများ* \n\n` +
-            `100GB: 3000 ကျပ် (၃၀ ရက်)\n\n` +
-            `200GB: 5000 ကျပ် (၃၀ ရက်)\n\n` +
-            `500GB: 7000 ကျပ် (၃၀ ရက်)\n\n`,
-          { parse_mode: "Markdown" }
-        );
-        break;
-
-      case "buy":
-        await bot.sendMessage(
-          chatId,
-          `*Private Key ဝယ်ယူရန်* \n\n` +
-            `Admin နှင့်ဆက်သွယ်ပါ [Aung Paing Soe](https://t.me/AungPaingSoeDev)`,
-          { parse_mode: "Markdown", disable_web_page_preview: true }
-        );
-        break;
+      await bot.editMessageText(priceMsg, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: "Markdown",
+        disable_web_page_preview: true,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "🔙 နောက်သို့", callback_data: "back_to_menu" }],
+          ],
+        },
+      });
     }
 
-    await showMainMenu(chatId);
-  } catch (error) {
-    console.error("Error handling callback:", error);
-    bot.sendMessage(chatId, "❌ An error occurred. Please try again later.");
+    // --------- KEY STATUS REQUEST ----------
+    if (data === "key_status") {
+      const statusMsg =
+        `📊 *Outline Key GB စစ်ရန်*\n\n` +
+        `ချိတ်ထားတဲ့ Outline Key ရဲ့ GB အသုံးပြုမှုကိုစစ်နိုင်ပါတယ်။\n\n` +
+        `*Message Box* ထဲမှာ (eg: ss://xxxxx) ကိုထည့်ပေးပါ။`;
+
+      // Set state
+      userState[chatId] = "waiting_for_key";
+
+      await bot.editMessageText(statusMsg, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: "Markdown",
+        disable_web_page_preview: true,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "🔙 နောက်သို့", callback_data: "back_to_menu" }],
+          ],
+        },
+      });
+    }
+
+    // --------- PROMOTION MENU ----------
+    if (data === "promotion") {
+      const promoMsg =
+        `🎁 *Pixel VPN Promotion*\n\n` +
+        `🔥 100GB Key ဝယ်ပါ → 10GB Free\n` +
+        `🔥 200GB Key ဝယ်ပါ → 20GB Free\n\n` +
+        `📌 Promotion သက်တမ်း: Dec 2025`;
+
+      await bot.editMessageText(promoMsg, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "🔙 နောက်သို့", callback_data: "back_to_menu" }],
+          ],
+        },
+      });
+    }
+
+    // --------- BACK TO MENU ----------
+    if (data === "back_to_menu") {
+      const { text, options } = getWelcomeMessage(callbackQuery.from);
+
+      await bot.editMessageText(text, {
+        chat_id: chatId,
+        message_id: messageId,
+        ...options,
+      });
+    }
+
+    await bot.answerCallbackQuery(callbackQuery.id);
+  } catch (err) {
+    console.error(err);
+    await bot.answerCallbackQuery(callbackQuery.id, "❌ Error! Try again.");
   }
 });
 
-bot.on("message", (msg) => {
-  if (!msg.text || msg.text.startsWith("/")) return;
-
+// ------------- USER MESSAGE LISTENER -------------
+bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
-  const messageText = msg.text.trim().toLowerCase();
+  const text = msg.text?.trim();
 
-  if (["1", "2", "3"].includes(messageText)) {
-    const plans = [
-      { gb: "100GB", price: "၅ ဒေါ်လာ" },
-      { gb: "200GB", price: "၁၀ ဒေါ်လာ" },
-      { gb: "500GB", price: "၂၀ ဒေါ်လာ" },
-    ];
+  // Only catch key input
+  if (userState[chatId] !== "waiting_for_key") return;
 
-    const selectedPlan = plans[parseInt(messageText) - 1];
-
-    bot.sendMessage(
+  // Validate key format
+  if (!text.startsWith("ss://") && !text.startsWith("ssr://")) {
+    return bot.sendMessage(
       chatId,
-      `📝 *အော်ဒါအချက်အလက်*\n\n` +
-        `📦 Package: ${selectedPlan.gb}\n` +
-        `💰 စျေးနှုန်း: ${selectedPlan.price}\n\n` +
-        `ကျေးဇူးပြု၍ အောက်ပါငွေလွှဲအကောင့်များသို့ ငွေလွှဲပါ -\n` +
-        `\`USDT (TRC20): Txxxxxxxxxxxxxxxxxxxxxxxxxxxxx\`\n` +
-        `\`KBZ Pay: 09xxxxxxxx\`\n\n` +
-        `ငွေလွှဲပြီးပါက ငွေလွှဲအတည်ပြုလက်မှတ်ကို @payment_bot သို့ပို့ပါ`,
-      { parse_mode: "Markdown" }
+      "❌ Key format မမှန်ပါ!\n`ss://xxxx` ပြန်ထည့်ပါ။",
+      {
+        parse_mode: "Markdown",
+      }
     );
-  } else {
-    showMainMenu(chatId, msg.from.first_name);
   }
-});
 
-bot.on("polling_error", (error) => {
-  console.error("Polling error:", error.message);
-});
+  // Reset state
+  userState[chatId] = null;
 
-process.on("unhandledRejection", (error) => {
-  console.error("Unhandled promise rejection:", error);
-});
+  // Fake Usage Data (replace later with real API)
+  const used = "1.5 GB";
+  const total = "10 GB";
 
-console.log("🤖 ဘော့အလုပ်လုပ်ဆောင်နေပါပြီ...");
+  const resultMsg =
+    `✅ *Outline Key Info*\n\n` +
+    `🔑 *Key:* \`${text.slice(0, 35)}...\`\n` +
+    `📊 *Used:* ${used}\n` +
+    `💾 *Total:* ${total}`;
+
+  return bot.sendMessage(chatId, resultMsg, {
+    parse_mode: "Markdown",
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "🔙 နောက်သို့", callback_data: "key_status" }],
+      ],
+    },
+  });
+});
